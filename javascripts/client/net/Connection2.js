@@ -1,17 +1,13 @@
 define([
 	'net/Connection',
-	'shared/util/EventHelper',
-	'time/clock'
+	'shared/util/EventHelper'
 ], function(
 	Connection,
-	EventHelper,
-	clock
+	EventHelper
 ) {
-	//adds the ability to ping
 	function Connection2() {
 		this._conn = new Connection();
-		this._pings = {};
-		this._events = new EventHelper([ 'connect', 'receive', 'ping', 'disconnect' ]);
+		this._events = new EventHelper([ 'connect', 'receive', 'disconnect' ]);
 		this._conn.on('connect', function(isReconnect) {
 			this._events.trigger('connect', isReconnect);
 		}, this);
@@ -19,27 +15,11 @@ define([
 			if(msg.type === 'message') {
 				this._events.trigger('receive', msg.message);
 			}
-			else if(msg.type === 'ping') {
-				this._events.trigger('ping',
-					msg.clientSendTime,
-					msg.clientSendFrame,
-					msg.serverReceiveTime,
-					msg.serverReceiveFrame,
-					clock.serverTime,
-					clock.serverFrame);
-			}
 		}, this);
 		this._conn.on('disconnect', function(isPermanent) {
 			this._events.trigger('disconnect', isPermanent);
 		}, this);
 	}
-	Connection2.prototype.ping = function() {
-		this._conn.send({
-			type: 'ping',
-			clientSendTime: clock.serverTime,
-			clientSendFrame: clock.serverFrame
-		});
-	};
 	Connection2.prototype.buffer = function(msg) {
 		this._conn.buffer({
 			type: 'message',

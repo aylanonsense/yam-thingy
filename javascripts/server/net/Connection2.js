@@ -1,13 +1,10 @@
 define([
 	'net/Connection',
-	'shared/util/EventHelper',
-	'time/clock'
+	'shared/util/EventHelper'
 ], function(
 	Connection,
-	EventHelper,
-	clock
+	EventHelper
 ) {
-	//adds the ability to respond to pings
 	function Connection2(socket) {
 		var self = this;
 		this._conn = new Connection(socket);
@@ -15,15 +12,6 @@ define([
 		this._conn.on('receive', function(msg) {
 			if(msg.type === 'message') {
 				this._events.trigger('receive', msg.message);
-			}
-			else if(msg.type === 'ping') {
-				this._conn.send({
-					type: 'ping',
-					clientSendTime: msg.clientSendTime,
-					clientSendFrame: msg.clientSendFrame,
-					serverReceiveTime: clock.time,
-					serverReceiveFrame: clock.frame
-				});
 			}
 		}, this);
 		this._conn.on('disconnect', function() {

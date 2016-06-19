@@ -20,7 +20,7 @@ define([
 		var maxLines = Math.floor((config.CANVAS_HEIGHT - 2 * margin) / lineHeight);
 		var topmostLineIndex = Math.max(0, this._lines.length - maxLines);
 		for(var i = topmostLineIndex; i < topmostLineIndex + maxLines && i < this._lines.length; i++) {
-			draw.text(this._lines[i], margin, margin + lineHeight * (i - topmostLineIndex) + 16, { fill: '#fff', fontSize: 16 });
+			draw.text(this._lines[i], margin, margin + lineHeight * (i - topmostLineIndex) + 16, { fill: '#fff', fontSize: 16, fixed: true });
 		}
 	};
 	return new ConsoleUI();

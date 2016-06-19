@@ -2,49 +2,99 @@ define([
 	'net/startWebServer',
 	'net/startSocketServer',
 	'net/server',
-	'time/clock'
+	'shared/time/clock',
+	'shared/game/Simulation',
+	'shared/game/SimulationRunner'
 ], function(
 	startWebServer,
 	startSocketServer,
 	connServer,
-	clock
+	clock,
+	Simulation,
+	SimulationRunner
 ) {
 	return function main() {
+		//create the simulation
+		var simulation = new Simulation();
+		var simulationRunner = new SimulationRunner({
+			simulation: simulation,
+			framesOfHistory: 5
+		});
+
 		//start server
 		var webServer = startWebServer();
 		var socketServer = startSocketServer(webServer);
 
-		//listen for clients
-		connServer.startListening(socketServer);
+		//handle network events
+		var networkTraffic = [];
 		connServer.on('connect', function(conn) {
-			var timeOfLastLatencyAdjustment = clock.time;
 			conn.on('receive', function(msg) {
-				if(msg.type === 'input') {
-					console.log('input: ' + (msg.frame - (clock.frame + 1)));
-					/*if(clock.time > timeOfLastLatencyAdjustment + 2000 && msg.frame - (clock.frame + 1) < 0) {
-						timeOfLastLatencyAdjustment = clock.time;
-						conn.send({
-							type: 'latency-adjustment',
-							frames: 1
-						});
-					}*/
-				}
+				networkTraffic.push({
+					conn: conn,
+					message: msg
+				});
 			});
 		});
 
-		//kick off update loop
-		clock.on('tick', function(ms) {
-			//TODO
-			if(clock.frame % 60 === 0) {
-				for(var i = 0; i < connServer.connections.length; i++) {
-					connServer.connections[i].send({
-						type: 'latency-test',
+		//handle the update loop
+		clock.on('tick', function() {
+			//respond to network traffic
+			for(var i = 0; i < networkTraffic.length; i++) {
+				if(networkTraffic[i].message.type === 'ping') {
+					networkTraffic[i].conn.buffer({
+						type: 'ping',
+						version: networkTraffic[i].message.version,
+						clientFrame: networkTraffic[i].message.clientFrame,
+						serverFrame: clock.frame
+					});
+				}
+				else if(networkTraffic[i].message.type === 'request-simulation-state') {
+					networkTraffic[i].conn.buffer({
+						type: 'simulation-state',
+						state: simulation.getState(),
 						frame: clock.frame
 					});
 				}
-				// console.log(clock.frame / 60, Math.floor(clock.time), 1000 * clock.frame / clock.time);
+			}
+			networkTraffic = [];
+
+			//update the simulation
+			if(clock.frame % 30 === 0) {
+				var entity = simulationRunner.getState().entities[0];
+				var action = {
+					type: 'entity-action',
+					entityId: entity.id,
+					action: {
+						type: 'change-dir',
+						moveX: -entity.state.moveX,
+						moveY: -entity.state.moveY
+					}
+				};
+				simulationRunner.handleAction(action, clock.frame);
+				for(i = 0; i < connServer.connections.length; i++) {
+					connServer.connections[i].buffer({
+						type: 'action',
+						action: action,
+						frame: clock.frame
+					});
+				}
+			}
+			simulationRunner.update();
+
+			//flush network traffic
+			for(i = 0; i < connServer.connections.length; i++) {
+				connServer.connections[i].flush();
 			}
 		});
+
+		//kick it all off!
 		clock.start();
+		connServer.startListening(socketServer);
+		simulationRunner.setState({
+			entities: [
+				{ id: 5, type: 'Square', state: { x: 200, y: 100, moveX: 1, moveY: 1 } },
+				{ id: 7, type: 'Square', state: { x: 600, y: 500, moveX: 0, moveY: 0 } }
+			]
+		}, clock.frame);
 	};
 }); 

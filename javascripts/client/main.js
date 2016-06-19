@@ -2,121 +2,150 @@ define([
 	'config',
 	'display/draw',
 	'display/canvas',
-	'time/clock',
+	'shared/time/clock',
 	'net/conn',
-	'net/pinger',
-	'net/timeSyncer',
 	'display/consoleUI',
-	'input/keyboard'
+	'net/pinger',
+	'shared/game/Simulation',
+	'shared/game/SimulationRunner',
+	'display/SimulationRenderer'
 ], function(
 	config,
 	draw,
 	canvas,
 	clock,
 	conn,
-	pinger,
-	timeSyncer,
 	consoleUI,
-	keyboard
+	pinger,
+	Simulation,
+	SimulationRunner,
+	SimulationRenderer
 ) {
 	return function main() {
-		var inputFrameLatency = 4;
+		var latency = null;
+		var inputLatency = 4;
+		var networkTraffic = [];
+
+		//create the simulation
+		var simulation = new Simulation();
+		var simulationRunner = new SimulationRunner({
+			simulation: simulation,
+			framesOfHistory: 12
+		});
+		var simulationRenderer = new SimulationRenderer({
+			simulation: simulation
+		});
 
 		//resize the canvas
 		canvas.setAttribute('width', config.CANVAS_WIDTH);
 		canvas.setAttribute('height', config.CANVAS_HEIGHT);
 
-		//handle the update loop
-		clock.on('server-tick', function(ms) {
-			//ping the server every so often
-			if(pinger.isRunning()) {
-				pinger.update(ms);
-			}
-
-			//flush any messages
-			conn.flush();
-		});
-		clock.on('client-tick', function(ms) {
-			//clear canvas
-			draw.rect(0, 0, config.CANVAS_WIDTH, config.CANVAS_HEIGHT, { fill: '#000', fixed: true });
-
-			//draw console
-			consoleUI.render();
-
-			if(pinger.isCalibrated() && timeSyncer.isCalibrated()) {
-				if((clock.clientFrame + timeSyncer.frameOffset) % 60 === 0) {
-					/*console.log((clock.clientFrame + timeSyncer.frameOffset) / 60,
-						Math.floor(clock.clientTime + timeSyncer.timeOffset),
-						1000 * (clock.clientFrame + timeSyncer.frameOffset) / (clock.clientTime + timeSyncer.timeOffset));*/
-				}
-			}
-
-			//draw the network graph
-			if(pinger.isRunning()) {
-				pinger.render();
-			}
-		});
-
-		//calibrate network latency
-		pinger.on('calibrated', function() {
-			consoleUI.write('Calibrated latency: ' + Math.ceil(pinger.timeLatency) + 'ms');
-			if(timeSyncer.isCalibrated()) {
-				consoleUI.write('Calibrated to ' + inputFrameLatency + ' frames of input latency and ' + pinger.frameLatency + ' frames of network latency');
-			}
-		});
-		timeSyncer.on('calibrated', function() {
-			consoleUI.write('Calibrated clock');
-			if(pinger.isCalibrated()) {
-				consoleUI.write('Calibrated to ' + inputFrameLatency + ' frames of input latency and ' + pinger.frameLatency + ' frames of network latency');
-			}
-		});
-		//add network handlers
+		//handle network events
 		conn.on('connect', function(isReconnect) {
 			consoleUI.write(isReconnect ? 'Reconnected to server' : 'Connected to server');
-			pinger.start();
-			timeSyncer.start();
+			pinger.start(config.MILLISECONDS_BETWEEN_PINGS_INITIALLY, 0);
 		});
 		conn.on('disconnect', function(isPermanent) {
 			consoleUI.write('Disconnected ' + (isPermanent ? 'permanently ' : '') + 'from server...');
+			latency = null;
+			networkTraffic = [];
 			pinger.stop();
-			timeSyncer.stop();
-		});
-		conn.on('ping', function(timeSent, frameSent, serverTime, serverFrame, timeReceived, frameReceived) {
-			pinger.handlePing(timeSent, frameSent, serverTime, serverFrame, timeReceived, frameReceived);
-			timeSyncer.handlePing(timeSent, frameSent, serverTime, serverFrame, timeReceived, frameReceived);
 		});
 		conn.on('receive', function(msg) {
-			if(msg.type === 'latency-adjustment') {
-				// console.log(msg);
-			}
-			else if(msg.type === 'latency-test') {
-				var nextServerFrame = clock.clientFrame + timeSyncer.frameOffset + 1;
-				var nextClientFrame = nextServerFrame - Math.ceil((pinger.frameLatency + config.EXTRA_FRAME_LATENCY_BUFFER) / 2);
-				console.log('latency-test: ' + (msg.frame - nextClientFrame));
-			}
+			networkTraffic.push(msg);
 		});
 
-		//handle inputs
-		keyboard.on('key-event', function(key, isDown) {
-			if(pinger.isCalibrated() && timeSyncer.isCalibrated()) {
-				var state = keyboard.getState();
-				var nextServerFrame = clock.clientFrame + timeSyncer.frameOffset + 1;
-				var nextClientFrame = nextServerFrame - Math.ceil((pinger.frameLatency + config.EXTRA_FRAME_LATENCY_BUFFER) / 2);
-				//the frame on which this input will occur on the local prediction
-				var frameToApplyInput = nextClientFrame + inputFrameLatency;
-				//the frame on which this input will actually occur
-				var remoteFrame = nextServerFrame + Math.floor((pinger.frameLatency + config.EXTRA_FRAME_LATENCY_BUFFER) / 2);
-				conn.send({
-					type: 'input',
-					key: key,
-					isDown: isDown,
-					state: state,
-					frame: remoteFrame
-				});
+		//handle the update loop
+		clock.on('tick', function() {
+			//ping the server periodically
+			pinger.update();
+
+			//respond to network traffic
+			for(var i = 0; i < networkTraffic.length; i++) {
+				if(networkTraffic[i].type === 'ping') {
+					pinger.handlePing(networkTraffic[i]);
+				}
+				else if(networkTraffic[i].type === 'simulation-state') {
+					consoleUI.write('Received simulation state');
+					simulationRunner.setState(networkTraffic[i].state, networkTraffic[i].frame);
+				}
+				else if(networkTraffic[i].type === 'action') {
+					simulationRunner.handleAction(networkTraffic[i].action, networkTraffic[i].frame);
+				}
 			}
+			networkTraffic = [];
+
+			//keep the client in sync with the server
+			if(pinger.hasConfidentResults()) {
+				var recalibratedNetwork = false;
+				var messedWithClock = false;
+
+				//initialize the network
+				if(latency === null || pinger.offset > 10 || pinger.offset < -10) {
+					latency = pinger.latency;
+					clock.frame += pinger.offset;
+					recalibratedNetwork = true;
+					simulationRunner.reset(clock.frame);
+					conn.buffer({
+						type: 'request-simulation-state'
+					});
+					consoleUI.write('Calibrated with ' +
+						inputLatency + ' frames of input latency and ' +
+						latency + ' frames of network latency');
+				}
+				//otherwise we may need to occasionally recalibrate the network
+				else {
+					//if messages are arriving late to the client, slow down the game to compensate
+					if(pinger.offset < 0) {
+						clock.slowDown(1);
+						recalibratedNetwork = true;
+						messedWithClock = true;
+					}
+					//if messages are arriving early to the client, speed up the game
+					else if(pinger.offset > 1) {
+						clock.speedUp(1);
+						recalibratedNetwork = true;
+						messedWithClock = true;
+					}
+
+					//if network latency got worse, take that into account
+					if(pinger.latency > latency) {
+						latency = pinger.latency;
+						recalibratedNetwork = true;
+					}
+					//if network latency got better, adopt that slowly
+					else if(pinger.latency < latency - 1) {
+						latency -= Math.floor((latency - pinger.latency) / 2);
+						recalibratedNetwork = true;
+					}
+				}
+
+				if(recalibratedNetwork) {
+					pinger.restart(config.MILLISECONDS_BETWEEN_PINGS, messedWithClock ? 500 : 0);
+				}
+			}
+
+			//clear canvas
+			draw.rect(0, 0, config.CANVAS_WIDTH, config.CANVAS_HEIGHT, { fill: '#000', fixed: true });
+
+			//update the simulation
+			while(simulationRunner.frame < clock.frame) {
+				simulationRunner.update();
+			}
+
+			//render the simulation (or the console if we're not there yet)
+			if(simulationRunner.hasState()) {
+				simulationRenderer.render();
+			}
+			else {
+				consoleUI.render();
+			}
+
+			//flush network traffic
+			conn.flush();
 		});
 
-		//start it all
+		//kick it all off!
 		clock.start();
 		conn.connect();
 	};
