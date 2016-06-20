@@ -100,7 +100,7 @@ define(function() {
 
 			//add the state of the simulation to the history
 			this._stateHistory.push({
-				state: this.simulation.getState,
+				state: this.simulation.getState(),
 				frame: this.frame,
 				isGenerated: true
 			});

@@ -11,7 +11,7 @@ define([
 			var actionsForEntity = [];
 			for(var j = 0; j < actions.length; j++) {
 				if(actions[j].type === 'entity-action' && actions[j].entityId === this.entities[i].id) {
-					actionsForEntity.push(actions[i].action);
+					actionsForEntity.push(actions[j].action);
 				}
 			}
 			this.entities[i].update(actionsForEntity);
@@ -47,6 +47,14 @@ define([
 		this.setState({
 			entities: []
 		});
+	};
+	Simulation.prototype.getEntity = function(id) {
+		for(var i = 0; i < this.entities.length; i++) {
+			if(this.entities[i].id === id) {
+				return this.entities[i];
+			}
+		}
+		return null;
 	};
 	return Simulation;
 });

@@ -8,7 +8,10 @@ define([
 	'net/pinger',
 	'shared/game/Simulation',
 	'shared/game/SimulationRunner',
-	'display/SimulationRenderer'
+	'display/SimulationRenderer',
+	'shared/input/InputStream',
+	'input/keyboard',
+	'shared/game/Player'
 ], function(
 	config,
 	draw,
@@ -19,11 +22,14 @@ define([
 	pinger,
 	Simulation,
 	SimulationRunner,
-	SimulationRenderer
+	SimulationRenderer,
+	InputStream,
+	keyboard,
+	Player
 ) {
 	return function main() {
 		var latency = null;
-		var inputLatency = 4;
+		var inputLatency = 0;
 		var networkTraffic = [];
 
 		//create the simulation
@@ -32,8 +38,21 @@ define([
 			simulation: simulation,
 			framesOfHistory: 12
 		});
+
+		//create the predicted simulation -- the one that'll use the user's input directly
+		var predictionSimulation = new Simulation();
+		var predictionSimulationRunner = new SimulationRunner({
+			simulation: predictionSimulation,
+			framesOfHistory: 12
+		});
+		var inputStream = new InputStream();
+		var player = new Player({
+			simulation: predictionSimulation,
+			inputStream: inputStream
+		});
 		var simulationRenderer = new SimulationRenderer({
-			simulation: simulation
+			simulation: simulation,
+			prediction: predictionSimulation
 		});
 
 		//resize the canvas
@@ -55,6 +74,24 @@ define([
 			networkTraffic.push(msg);
 		});
 
+		//handle input events
+		keyboard.on('key-event', function(key, isDown) {
+			var state = keyboard.getState();
+			inputStream.addInput({
+				key: key,
+				isDown: isDown,
+				state: state
+			}, clock.frame + 1 + inputLatency, 0);
+			conn.buffer({
+				type: 'input',
+				key: key,
+				isDown: isDown,
+				state: state,
+				frame: clock.frame + latency,
+				maxFramesLate: 6
+			});
+		});
+
 		//handle the update loop
 		clock.on('tick', function() {
 			//ping the server periodically
@@ -66,11 +103,16 @@ define([
 					pinger.handlePing(networkTraffic[i]);
 				}
 				else if(networkTraffic[i].type === 'simulation-state') {
-					consoleUI.write('Received simulation state');
 					simulationRunner.setState(networkTraffic[i].state, networkTraffic[i].frame);
+					if(!predictionSimulationRunner.hasState()) {
+						predictionSimulationRunner.setState(networkTraffic[i].state, networkTraffic[i].frame);
+					}
 				}
 				else if(networkTraffic[i].type === 'action') {
 					simulationRunner.handleAction(networkTraffic[i].action, networkTraffic[i].frame);
+					if(!networkTraffic[i].causedByClientInput) {
+						predictionSimulationRunner.handleAction(networkTraffic[i].action, networkTraffic[i].frame);
+					}
 				}
 			}
 			networkTraffic = [];
@@ -86,6 +128,7 @@ define([
 					clock.frame += pinger.offset;
 					recalibratedNetwork = true;
 					simulationRunner.reset(clock.frame);
+					predictionSimulationRunner.reset(clock.frame);
 					conn.buffer({
 						type: 'request-simulation-state'
 					});
@@ -129,12 +172,20 @@ define([
 			draw.rect(0, 0, config.CANVAS_WIDTH, config.CANVAS_HEIGHT, { fill: '#000', fixed: true });
 
 			//update the simulation
+			var actions = player.popActions(clock.frame);
+			for(i = 0; i < actions.length; i++) {
+				//the actions based on local input are only applied to the prediction
+				predictionSimulationRunner.handleAction(actions[i], clock.frame);
+			}
 			while(simulationRunner.frame < clock.frame) {
 				simulationRunner.update();
 			}
+			while(predictionSimulationRunner.frame < clock.frame) {
+				predictionSimulationRunner.update();
+			}
 
 			//render the simulation (or the console if we're not there yet)
-			if(simulationRunner.hasState()) {
+			if(predictionSimulationRunner.hasState()) {
 				simulationRenderer.render();
 			}
 			else {
