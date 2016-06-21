@@ -55,6 +55,9 @@ define([
 			clients.push(client);
 			conn.on('receive', function(msg) {
 				if(msg.type === 'input') {
+					if(msg.frame < clock.frame + 1) {
+						console.log('Input arrived ' + (clock.frame + 1 - msg.frame) + ' frames late', msg);
+					}
 					inputStream.addInput({
 						key: msg.key,
 						isDown: msg.isDown,
@@ -80,6 +83,7 @@ define([
 			//respond to network traffic
 			for(var i = 0; i < networkTraffic.length; i++) {
 				if(networkTraffic[i].message.type === 'ping') {
+					// console.log('ping sent at time', networkTraffic[i].message.clientFrame, 'arrived at', clock.frame);
 					networkTraffic[i].client.conn.buffer({
 						type: 'ping',
 						version: networkTraffic[i].message.version,
@@ -147,7 +151,7 @@ define([
 		simulationRunner.setState({
 			entities: [
 				{ id: 5, type: 'Square', state: { x: 200, y: 100, moveX: 1, moveY: 1 } },
-				{ id: 7, type: 'Square', state: { x: 600, y: 500, moveX: 0, moveY: 0 } }
+				{ id: 7, type: 'Square', state: { x: 400, y: 300, moveX: 0, moveY: 0 } }
 			]
 		}, clock.frame);
 	};

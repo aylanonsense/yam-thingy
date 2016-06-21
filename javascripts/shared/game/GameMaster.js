@@ -10,7 +10,7 @@ define(function() {
 				type: 'entity-action',
 				entityId: entity.id,
 				action: {
-					type: 'change-dir',
+					type: 'change-move-dir',
 					moveX: -entity.moveX,
 					moveY: -entity.moveY
 				}

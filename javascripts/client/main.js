@@ -29,7 +29,7 @@ define([
 ) {
 	return function main() {
 		var latency = null;
-		var inputLatency = 0;
+		var inputLatency = null;
 		var networkTraffic = [];
 
 		//create the simulation
@@ -81,13 +81,13 @@ define([
 				key: key,
 				isDown: isDown,
 				state: state
-			}, clock.frame + 1 + inputLatency, 0);
+			}, clock.frame + 1 + (inputLatency || 0), 0);
 			conn.buffer({
 				type: 'input',
 				key: key,
 				isDown: isDown,
 				state: state,
-				frame: clock.frame + latency,
+				frame: clock.frame + 1 + latency,
 				maxFramesLate: 6
 			});
 		});
@@ -123,9 +123,10 @@ define([
 				var messedWithClock = false;
 
 				//initialize the network
-				if(latency === null || pinger.offset > 10 || pinger.offset < -10) {
-					latency = pinger.latency;
-					clock.frame += pinger.offset;
+				if(latency === null || pinger.offset - config.CLOCK_OFFSET > 10 || pinger.offset - config.CLOCK_OFFSET < -10) {
+					latency = pinger.latency + config.LATENCY_BUFFER;
+					inputLatency = Math.min(latency, config.MAX_INPUT_LATENCY);
+					clock.frame += pinger.offset - config.CLOCK_OFFSET;
 					recalibratedNetwork = true;
 					simulationRunner.reset(clock.frame);
 					predictionSimulationRunner.reset(clock.frame);
@@ -139,26 +140,26 @@ define([
 				//otherwise we may need to occasionally recalibrate the network
 				else {
 					//if messages are arriving late to the client, slow down the game to compensate
-					if(pinger.offset < 0) {
+					if(pinger.offset - config.CLOCK_OFFSET < 0) {
 						clock.slowDown(1);
 						recalibratedNetwork = true;
 						messedWithClock = true;
 					}
 					//if messages are arriving early to the client, speed up the game
-					else if(pinger.offset > 1) {
+					else if(pinger.offset - config.CLOCK_OFFSET > 1) {
 						clock.speedUp(1);
 						recalibratedNetwork = true;
 						messedWithClock = true;
 					}
 
 					//if network latency got worse, take that into account
-					if(pinger.latency > latency) {
-						latency = pinger.latency;
+					if(pinger.latency + config.LATENCY_BUFFER > latency) {
+						latency = pinger.latency + config.LATENCY_BUFFER;
 						recalibratedNetwork = true;
 					}
 					//if network latency got better, adopt that slowly
-					else if(pinger.latency < latency - 1) {
-						latency -= Math.floor((latency - pinger.latency) / 2);
+					else if(pinger.latency + config.LATENCY_BUFFER < latency - 1) {
+						latency -= Math.floor((latency - (pinger.latency + config.LATENCY_BUFFER)) / 2);
 						recalibratedNetwork = true;
 					}
 				}

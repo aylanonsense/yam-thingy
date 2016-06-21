@@ -15,9 +15,13 @@ define([
 	Square.prototype.update = function(actions) {
 		//handle actions
 		for(var i = 0; i < actions.length; i++) {
-			if(actions[i].type === 'change-dir') {
-				this.moveX = actions[i].moveX;
-				this.moveY = actions[i].moveY;
+			if(actions[i].type === 'change-move-dir') {
+				if(actions[i].moveX !== null) {
+					this.moveX = actions[i].moveX;
+				}
+				if(actions[i].moveY !== null) {
+					this.moveY = actions[i].moveY;
+				}
 			}
 		}
 
@@ -51,8 +55,8 @@ define([
 	};
 	Square.prototype.handleInput = function(key, isDown, state) {
 		if(key === 'UP' || key === 'DOWN' || key === 'LEFT' || key === 'RIGHT') {
-			var moveX = this.moveX;
-			var moveY = this.moveY;
+			var moveX = null;
+			var moveY = null;
 			if(key === 'UP') { moveY = isDown ? -1 : (state.DOWN ? 1 : 0); }
 			else if(key === 'DOWN') { moveY = isDown ? 1 : (state.UP ? -1 : 0); }
 			else if(key === 'LEFT') { moveX = isDown ? -1 : (state.RIGHT ? 1 : 0); }
@@ -62,7 +66,7 @@ define([
 					type: 'entity-action',
 					entityId: this.id,
 					action: {
-						type: 'change-dir',
+						type: 'change-move-dir',
 						moveX: moveX,
 						moveY: moveY
 					}
