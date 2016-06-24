@@ -1,17 +1,17 @@
 define([
 	'net/startWebServer',
 	'net/startSocketServer',
-	'net/server',
+	'net/ClientServer',
 	'shared/time/clock',
 	'shared/game/Simulation',
 	'shared/game/SimulationRunner',
 	'shared/input/InputStream',
-	'shared/game/Player',
-	'shared/game/GameMaster'
+	'shared/game/player/Player',
+	'shared/game/player/GameMaster'
 ], function(
 	startWebServer,
 	startSocketServer,
-	connServer,
+	ClientServer,
 	clock,
 	Simulation,
 	SimulationRunner,
@@ -20,146 +20,139 @@ define([
 	GameMaster
 ) {
 	return function main() {
+		//start server
+		var webServer = startWebServer();
+		var socketServer = startSocketServer(webServer);
+
 		//create the simulation
 		var simulation = new Simulation();
 		var simulationRunner = new SimulationRunner({
 			simulation: simulation,
 			framesOfHistory: 5
 		});
+
+		//create the game master that will do a lot of the CPU decision-making
 		var gameMaster = new GameMaster({
 			simulation: simulation
 		});
 
-		//start server
-		var webServer = startWebServer();
-		var socketServer = startSocketServer(webServer);
+		//create all the network stuff
+		var clientServer = new ClientServer({
+			simulation: simulation,
+			socketServer: socketServer
+		});
 
 		//handle network events
-		var nextClientId = 0;
-		var clients = [];
-		var networkTraffic = [];
-		connServer.on('connect', function(conn) {
-			var clientId = nextClientId++;
-			var inputStream = new InputStream();
-			var player = new Player({
-				simulation: simulation,
-				inputStream: inputStream
-			});
-			var client = {
-				id: clientId,
-				player: player,
-				conn: conn
-			};
-			clients.push(client);
-			conn.on('receive', function(msg) {
+		var receivedMessages = [];
+		clientServer.on('connect', function(client) {
+			client.on('receive', function(msg) {
 				if(msg.type === 'input') {
 					if(msg.frame < clock.frame + 1) {
 						console.log('Input arrived ' + (clock.frame + 1 - msg.frame) + ' frames late', msg);
 					}
-					inputStream.addInput({
-						key: msg.key,
-						isDown: msg.isDown,
-						state: msg.state
-					}, msg.frame, msg.maxFramesLate);
+					client.inputStream.scheduleInput(msg.input, msg.frame, msg.maxFramesLate);
 				}
 				else {
-					networkTraffic.push({
-						client: client,
-						message: msg
-					});
+					receivedMessages.push({ client: client, message: msg });
 				}
 			});
-			conn.on('disconnect', function() {
-				clients = clients.filter(function(client) {
-					return client.id !== clientId;
-				});
-				gameMaster.removePlayer(player);
+			client.on('disconnect', function() {
+				gameMaster.removePlayer(client.player);
 			});
-			gameMaster.addPlayer(player);
 		});
 
-		//handle the update loop
+		//the update loop
 		clock.on('tick', function() {
-			var i, j, k;
+			var i, msg, client, actions;
 
-			//respond to network traffic
-			for(i = 0; i < networkTraffic.length; i++) {
-				if(networkTraffic[i].message.type === 'ping') {
-					// console.log('ping sent at time', networkTraffic[i].message.clientFrame, 'arrived at', clock.frame);
-					networkTraffic[i].client.conn.buffer({
+			//respond to client messages
+			var stateRequests = [];
+			for(i = 0; i < receivedMessages.length; i++) {
+				client = receivedMessages[i].client;
+				msg = receivedMessages[i].message;
+				if(msg.type === 'ping') {
+					client.buffer({
 						type: 'ping',
-						version: networkTraffic[i].message.version,
-						clientFrame: networkTraffic[i].message.clientFrame,
+						version: msg.version,
+						clientFrame: msg.clientFrame,
 						serverFrame: clock.frame
 					});
 				}
-				else if(networkTraffic[i].message.type === 'request-simulation-state') {
-					networkTraffic[i].client.conn.buffer({
-						type: 'simulation-state',
-						state: simulation.getState(),
-						frame: clock.frame
-					});
-				}
-				else if(networkTraffic[i].message.type === 'request-player-config') {
-					networkTraffic[i].client.conn.buffer({
-						type: 'player-config',
-						config: networkTraffic[i].client.player.getConfigParams()
-					});
+				else if(msg.type === 'join-game') {
+					if(!client.player.hasJoined()) {
+						gameMaster.addPlayer(client.player);
+					}
+					stateRequests.push(receivedMessages[i]);
 				}
 			}
-			networkTraffic = [];
+			receivedMessages = [];
 
-			//update the simulation
-			var actions;
-			for(i = 0; i < clients.length; i++) {
-				actions = clients[i].player.generateActions(clock.frame);
-				for(j = 0; j < actions.length; j++) {
-					simulationRunner.handleAction(actions[j], clock.frame);
-					for(k = 0; k < clients.length; k++) {
-						if(k !== i) {
-							clients[k].conn.buffer({
-								type: 'action',
-								action: actions[j],
-								frame: clock.frame,
-								causedByClientInput: false
-							});
-						}
-					}
-					clients[i].conn.buffer({
-						type: 'action',
-						action: actions[j],
+			//generate actions from user input
+			for(i = 0; i < clientServer.clients.length; i++) {
+				client = clientServer.clients[i];
+				var inputs = client.inputStream.popInputs();
+				client.player.update(inputs);
+				actions = client.player.popActions();
+				if(actions.length > 0) {
+					simulationRunner.scheduleActions(actions, clock.frame);
+					clientServer.bufferToAllExcept({
+						type: 'actions',
+						actions: actions,
+						frame: clock.frame,
+						causedByClientInput: false
+					}, client);
+					client.buffer({
+						type: 'actions',
+						actions: actions,
 						frame: clock.frame,
 						causedByClientInput: true
 					});
 				}
 			}
-			actions = gameMaster.generateActions(clock.frame);
-			for(i = 0; i < actions.length; i++) {
-				simulationRunner.handleAction(actions[i], clock.frame);
-				for(j = 0; j < clients.length; j++) {
-					clients[j].conn.buffer({
-						type: 'action',
-						action: actions[i],
-						frame: clock.frame,
-						causedByClientInput: false
+
+			//generate actions from the game master
+			gameMaster.update();
+			actions = gameMaster.popActions();
+			if(actions.length > 0) {
+				simulationRunner.scheduleActions(actions, clock.frame);
+				clientServer.bufferToAll({
+					type: 'actions',
+					actions: actions,
+					frame: clock.frame,
+					causedByClientInput: false
+				});
+			}
+
+			//update the simulation
+			simulationRunner.update();
+
+			//now that the simulation is updated, we can send the state to clients that want it
+			for(i = 0; i < stateRequests.length; i++) {
+				client = stateRequests[i].client;
+				msg = stateRequests[i].message;
+				if(msg.type === 'join-game') {
+					client.buffer({
+						type: 'join-accept',
+						simulationState: simulation.getState(),
+						playerState: client.player.getState(),
+						frame: clock.frame
 					});
 				}
 			}
-			simulationRunner.update();
+			stateRequests = [];
 
 			//flush network traffic
-			for(i = 0; i < clients.length; i++) {
-				clients[i].conn.flush();
-			}
+			clientServer.flushAll();
 		});
 
 		//kick it all off!
 		clock.start();
-		simulationRunner.reset(clock.frame, true);
-		var initialActions = gameMaster.generateInitialActions(clock.frame);
-		for(var i = 0; i < initialActions.length; i++) {
-			simulationRunner.handleAction(initialActions[i], clock.frame);
+		simulationRunner.reset(clock.frame);
+		gameMaster.reset();
+		var initialActions = gameMaster.popActions();
+		if(initialActions.length > 0) {
+			simulationRunner.scheduleActions(initialActions, clock.frame);
 		}
-		connServer.startListening(socketServer);
+		clientServer.startListening();
 	};
 }); 

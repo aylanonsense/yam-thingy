@@ -3,28 +3,26 @@ define(function() {
 		this._framesOfHistory = params.framesOfHistory;
 		this.simulation = params.simulation;
 		this.frame = null;
-		this._hasState = false;
 		this._stateHistory = [];
 		this._actionHistory = [];
 	}
-	SimulationRunner.prototype.reset = function(frame, hasState) {
+	SimulationRunner.prototype.reset = function(frame) {
 		this.simulation.reset();
 		this.frame = frame;
-		this._hasState = hasState || false;
 		this._stateHistory = [{
 			state: this.simulation.getState(),
-			frame: frame - 1,
+			frame: this.frame - 1,
 			isGenerated: true
 		}];
 		this._actionHistory = [];
 	};
-	SimulationRunner.prototype.hasState = function() {
-		return this._hasState;
-	};
 	SimulationRunner.prototype.getState = function() {
-		return (this._hasState ? this.simulation.getState() : null);
+		return this.simulation.getState();
 	};
-	SimulationRunner.prototype.setState = function(state, frame) {
+	SimulationRunner.prototype.scheduleState = function(state, frame) {
+		if(!state) {
+			throw new Error("aahh");
+		}
 		//get rid of future states, they will need to be regenerated
 		this._removeStateHistoryAfter(frame);
 
@@ -38,7 +36,6 @@ define(function() {
 		//if the frame is in the past, we need to rewind to handle it
 		if(frame <= this.frame) {
 			this._regenerateStateHistoryAfter(frame);
-			this._hasState = true;
 		}
 	};
 	SimulationRunner.prototype._removeStateHistoryAfter = function(frame) {
@@ -86,11 +83,10 @@ define(function() {
 		//if there's an existing state, our job is easy
 		if(existingRecord) {
 			this.simulation.setState(existingRecord.state);
-			this._hasState = true;
 		}
 
 		//otherwise we have to generate it
-		else if(this._hasState) {
+		else {
 			//collect the actions that are applicable for this frame
 			var actions = [];
 			for(i = 0; i < this._actionHistory.length; i++) {
@@ -123,7 +119,7 @@ define(function() {
 			return record.frame >= self.frame - self._framesOfHistory;
 		});
 	};
-	SimulationRunner.prototype.handleAction = function(action, frame) {
+	SimulationRunner.prototype.scheduleActions = function(actions, frame) {
 		var self = this;
 
 		//we can't do anything with actions that are very old (or too far in the future)
@@ -131,11 +127,13 @@ define(function() {
 			return false;
 		}
 
-		//record the action
-		this._actionHistory.push({
-			action: action,
-			frame: frame
-		});
+		//record the actions
+		for(var i = 0; i < actions.length; i++) {
+			this._actionHistory.push({
+				action: actions[i],
+				frame: frame
+			});
+		}
 
 		//if the frame is in the past, we need to rewind to handle it
 		if(frame <= this.frame) {

@@ -49,9 +49,7 @@ define([
 				version: this._pingVersion,
 				clientFrame: clock.frame
 			});
-			var delay = this._recentPings.length >= config.PINGS_TO_STORE ?
-				config.MILLISECONDS_BETWEEN_PINGS : config.MILLISECONDS_BETWEEN_PINGS_INITIALLY;
-			this._timeOfNextPing = clock.time + delay;
+			this._timeOfNextPing = clock.time + this._millisecondsBetweenPings;
 		}
 	};
 	Pinger.prototype.start = function(msBetween, initialDelay) {
@@ -77,5 +75,5 @@ define([
 	Pinger.prototype.isPinging = function() {
 		return this._timeOfNextPing !== null;
 	};
-	return new Pinger();
+	return Pinger;
 });

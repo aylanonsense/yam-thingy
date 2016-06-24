@@ -10,7 +10,7 @@ define([
 	var MIN_DELAY = 1000 / (sharedConfig.FRAMES_PER_SECOND * sharedConfig.FRAMES_PER_SECOND_MAX_SPEED_UP);
 	var MAX_DELAY = 1000 / (sharedConfig.FRAMES_PER_SECOND * sharedConfig.FRAMES_PER_SECOND_MAX_SLOW_DOWN);
 
-	function StableFrameRateClock(params) {
+	function StableFrameRateClock() {
 		this._rawTime = 0;
 		this._timeOffset = 0;
 		this._rawFrame = 0;

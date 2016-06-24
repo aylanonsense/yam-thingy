@@ -24,43 +24,26 @@ define([
 				}
 			}
 		}
-
 		//move
-		if(this.moveX > 0) {
-			this.x += this.speed;
-		}
-		else if(this.moveX < 0) {
-			this.x -= this.speed;
-		}
-		if(this.moveY > 0) {
-			this.y += this.speed;
-		}
-		else if(this.moveY < 0) {
-			this.y -= this.speed;
-		}
+		if(this.moveX > 0) { this.x += this.speed; }
+		else if(this.moveX < 0) { this.x -= this.speed; }
+		if(this.moveY > 0) { this.y += this.speed; }
+		else if(this.moveY < 0) { this.y -= this.speed; }
 	};
 	Square.prototype.getState = function() {
-		return {
-			x: this.x,
-			y: this.y,
-			moveX: this.moveX,
-			moveY: this.moveY
-		};
+		return this.getProperties([ 'x', 'y', 'moveX', 'moveY' ]);
 	};
 	Square.prototype.setState = function(state) {
-		this.x = state.x;
-		this.y = state.y;
-		this.moveX = state.moveX;
-		this.moveY = state.moveY;
+		this.setProperties([ 'x', 'y', 'moveX', 'moveY' ], state);
 	};
-	Square.prototype.handleInput = function(key, isDown, state) {
-		if(key === 'UP' || key === 'DOWN' || key === 'LEFT' || key === 'RIGHT') {
+	Square.prototype.handleInput = function(input) {
+		if(input.key === 'UP' || input.key === 'DOWN' || input.key === 'LEFT' || input.key === 'RIGHT') {
 			var moveX = null;
 			var moveY = null;
-			if(key === 'UP') { moveY = isDown ? -1 : (state.DOWN ? 1 : 0); }
-			else if(key === 'DOWN') { moveY = isDown ? 1 : (state.UP ? -1 : 0); }
-			else if(key === 'LEFT') { moveX = isDown ? -1 : (state.RIGHT ? 1 : 0); }
-			else if(key === 'RIGHT') { moveX = isDown ? 1 : (state.LEFT ? -1 : 0); }
+			if(input.key === 'UP') { moveY = input.isDown ? -1 : (input.state.DOWN ? 1 : 0); }
+			else if(input.key === 'DOWN') { moveY = input.isDown ? 1 : (input.state.UP ? -1 : 0); }
+			else if(input.key === 'LEFT') { moveX = input.isDown ? -1 : (input.state.RIGHT ? 1 : 0); }
+			else if(input.key === 'RIGHT') { moveX = input.isDown ? 1 : (input.state.LEFT ? -1 : 0); }
 			return [
 				{
 					type: 'entity-action',

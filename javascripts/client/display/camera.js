@@ -1,6 +1,6 @@
 define([
 	'config',
-	'geom/Vector'
+	'shared/geom/Vector'
 ], function(
 	config,
 	Vector
