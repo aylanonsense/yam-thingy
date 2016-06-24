@@ -2,22 +2,27 @@ define(function() {
 	function Player(params) {
 		this.simulation = params.simulation;
 		this.inputStream = params.inputStream;
-		this._inputState = null;
-		this._entityId = 7;//null; //TODO do not harcode
+		this.entityId = null;
 	}
-	Player.prototype.reset = function(params) {
-		this._entityId = params.entityId;
-		var inputs = this.inputStream.popInputs();
-		for(var i = 0; i < inputs.length; i++) {
-			this._inputState = inputs[i].state;
-		}
+	Player.prototype.reset = function() {
+		this.entityId = null;
 	};
-	Player.prototype.popActions = function(frame) {
+	Player.prototype.getConfigParams = function() {
+		return {
+			entityId: this.entityId
+		};
+	};
+	Player.prototype.setConfigParams = function(params) {
+		this.entityId = params.entityId;
+	};
+	Player.prototype.generateActions = function(frame) {
 		var actions = [];
+		var entity = this.simulation.getEntity(this.entityId);
+
+		//for each recent input
 		var inputs = this.inputStream.popInputs(frame);
-		var entity = this.simulation.getEntity(this._entityId);
 		for(var i = 0; i < inputs.length; i++) {
-			this._inputState = inputs[i].state;
+			//let the entity's handleInput function determine what to do
 			if(entity) {
 				var entityGeneratedActions = entity.handleInput(inputs[i].key, inputs[i].isDown, inputs[i].state);
 				if(entityGeneratedActions) {

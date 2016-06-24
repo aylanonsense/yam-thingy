@@ -108,6 +108,9 @@ define([
 						predictionSimulationRunner.setState(networkTraffic[i].state, networkTraffic[i].frame);
 					}
 				}
+				else if(networkTraffic[i].type === 'player-config') {
+					player.setConfigParams(networkTraffic[i].config);
+				}
 				else if(networkTraffic[i].type === 'action') {
 					simulationRunner.handleAction(networkTraffic[i].action, networkTraffic[i].frame);
 					if(!networkTraffic[i].causedByClientInput) {
@@ -128,10 +131,14 @@ define([
 					inputLatency = Math.min(latency, config.MAX_INPUT_LATENCY);
 					clock.frame += pinger.offset - config.CLOCK_OFFSET;
 					recalibratedNetwork = true;
+					player.reset();
 					simulationRunner.reset(clock.frame);
 					predictionSimulationRunner.reset(clock.frame);
 					conn.buffer({
 						type: 'request-simulation-state'
+					});
+					conn.buffer({
+						type: 'request-player-config'
 					});
 					consoleUI.write('Calibrated with ' +
 						inputLatency + ' frames of input latency and ' +
@@ -173,7 +180,7 @@ define([
 			draw.rect(0, 0, config.CANVAS_WIDTH, config.CANVAS_HEIGHT, { fill: '#000', fixed: true });
 
 			//update the simulation
-			var actions = player.popActions(clock.frame);
+			var actions = player.generateActions(clock.frame);
 			for(i = 0; i < actions.length; i++) {
 				//the actions based on local input are only applied to the prediction
 				predictionSimulationRunner.handleAction(actions[i], clock.frame);

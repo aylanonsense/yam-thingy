@@ -7,11 +7,15 @@ define(function() {
 		this._stateHistory = [];
 		this._actionHistory = [];
 	}
-	SimulationRunner.prototype.reset = function(frame) {
+	SimulationRunner.prototype.reset = function(frame, hasState) {
 		this.simulation.reset();
 		this.frame = frame;
-		this._hasState = false;
-		this._stateHistory = [];
+		this._hasState = hasState || false;
+		this._stateHistory = [{
+			state: this.simulation.getState(),
+			frame: frame - 1,
+			isGenerated: true
+		}];
 		this._actionHistory = [];
 	};
 	SimulationRunner.prototype.hasState = function() {

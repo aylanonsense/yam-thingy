@@ -1,13 +1,31 @@
 define([
-	'shared/game/entity/Square'
+	'shared/game/entity/Square',
+	'shared/game/entity/SyncedCrate',
+	'shared/game/entity/DesyncedCrate'
 ], function(
-	Square
+	Square,
+	SyncedCrate,
+	DesyncedCrate
 ) {
 	function Simulation() {
 		this.entities = [];
 	}
 	Simulation.prototype.update = function(actions) {
-		for(var i = 0; i < this.entities.length; i++) {
+		//handle simulation-level actions
+		for(var i = 0; i < actions.length; i++) {
+			if(actions[i].type === 'spawn-entity') {
+				this.spawnEntity(actions[i].entityId, actions[i].entityType, actions[i].entityState);
+			}
+			else if(actions[i].type === 'despawn-entity') {
+				this.despawnEntity(actions[i].entityId);
+			}
+			else if(actions[i].type !== 'entity-action') {
+				throw new Error('Cannot handle action of type "' + actions[i].type + '"');
+			}
+		}
+
+		//update all entities
+		for(i = 0; i < this.entities.length; i++) {
 			var actionsForEntity = [];
 			for(var j = 0; j < actions.length; j++) {
 				if(actions[j].type === 'entity-action' && actions[j].entityId === this.entities[i].id) {
@@ -33,14 +51,7 @@ define([
 	Simulation.prototype.setState = function(state) {
 		this.entities = [];
 		for(var i = 0; i < state.entities.length; i++) {
-			var entity;
-			if(state.entities[i].type === 'Square') {
-				entity = new Square(state.entities[i].id);
-				entity.setState(state.entities[i].state);
-			}
-			if(entity) {
-				this.entities.push(entity);
-			}
+			this.spawnEntity(state.entities[i].id, state.entities[i].type, state.entities[i].state);
 		}
 	};
 	Simulation.prototype.reset = function() {
@@ -55,6 +66,29 @@ define([
 			}
 		}
 		return null;
+	};
+	Simulation.prototype.spawnEntity = function(id, type, state) {
+		this.despawnEntity(id);
+		var entity;
+		if(type === 'Square') {
+			entity = new Square(id);
+		}
+		else if(type === 'SyncedCrate') {
+			entity = new SyncedCrate(id);
+		}
+		else if(type === 'DesyncedCrate') {
+			entity = new DesyncedCrate(id);
+		}
+		else {
+			throw new Error('Cannot spawn entity of type "' + type + '"');
+		}
+		entity.setState(state);
+		this.entities.push(entity);
+	};
+	Simulation.prototype.despawnEntity = function(id) {
+		this.entities = this.entities.filter(function(entity) {
+			return entity.id !== id;
+		});
 	};
 	return Simulation;
 });

@@ -20,8 +20,6 @@ define([
 	GameMaster
 ) {
 	return function main() {
-		var i, j, k;
-
 		//create the simulation
 		var simulation = new Simulation();
 		var simulationRunner = new SimulationRunner({
@@ -75,13 +73,17 @@ define([
 				clients = clients.filter(function(client) {
 					return client.id !== clientId;
 				});
+				gameMaster.removePlayer(player);
 			});
+			gameMaster.addPlayer(player);
 		});
 
 		//handle the update loop
 		clock.on('tick', function() {
+			var i, j, k;
+
 			//respond to network traffic
-			for(var i = 0; i < networkTraffic.length; i++) {
+			for(i = 0; i < networkTraffic.length; i++) {
 				if(networkTraffic[i].message.type === 'ping') {
 					// console.log('ping sent at time', networkTraffic[i].message.clientFrame, 'arrived at', clock.frame);
 					networkTraffic[i].client.conn.buffer({
@@ -98,13 +100,19 @@ define([
 						frame: clock.frame
 					});
 				}
+				else if(networkTraffic[i].message.type === 'request-player-config') {
+					networkTraffic[i].client.conn.buffer({
+						type: 'player-config',
+						config: networkTraffic[i].client.player.getConfigParams()
+					});
+				}
 			}
 			networkTraffic = [];
 
 			//update the simulation
 			var actions;
 			for(i = 0; i < clients.length; i++) {
-				actions = clients[i].player.popActions(clock.frame);
+				actions = clients[i].player.generateActions(clock.frame);
 				for(j = 0; j < actions.length; j++) {
 					simulationRunner.handleAction(actions[j], clock.frame);
 					for(k = 0; k < clients.length; k++) {
@@ -125,7 +133,7 @@ define([
 					});
 				}
 			}
-			actions = gameMaster.popActions(clock.frame);
+			actions = gameMaster.generateActions(clock.frame);
 			for(i = 0; i < actions.length; i++) {
 				simulationRunner.handleAction(actions[i], clock.frame);
 				for(j = 0; j < clients.length; j++) {
@@ -147,12 +155,11 @@ define([
 
 		//kick it all off!
 		clock.start();
+		simulationRunner.reset(clock.frame, true);
+		var initialActions = gameMaster.generateInitialActions(clock.frame);
+		for(var i = 0; i < initialActions.length; i++) {
+			simulationRunner.handleAction(initialActions[i], clock.frame);
+		}
 		connServer.startListening(socketServer);
-		simulationRunner.setState({
-			entities: [
-				{ id: 5, type: 'Square', state: { x: 200, y: 100, moveX: 1, moveY: 1 } },
-				{ id: 7, type: 'Square', state: { x: 400, y: 300, moveX: 0, moveY: 0 } }
-			]
-		}, clock.frame);
 	};
 }); 
