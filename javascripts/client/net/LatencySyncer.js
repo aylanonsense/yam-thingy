@@ -1,7 +1,7 @@
 define([
 	'config',
 	'shared/time/clock',
-	'net/PingerRenamed'
+	'net/Pinger'
 ], function(
 	config,
 	clock,
