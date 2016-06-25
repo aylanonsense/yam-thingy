@@ -1,10 +1,15 @@
 define([
-	'shared/game/entity/Entity'
+	'shared/game/entity/Entity',
+	'shared/geom/Vector'
 ], function(
-	Entity
+	Entity,
+	Vector
 ) {
 	function SyncedCrate(id) {
 		Entity.call(this, id, 'SyncedCrate');
+		this.width = 20;
+		this.height = 20;
+		//state variables
 		this.x = 0;
 		this.y = 0;
 		this.velX = 0;
@@ -12,18 +17,20 @@ define([
 	}
 	SyncedCrate.prototype = Object.create(Entity.prototype);
 	SyncedCrate.prototype.update = function(actions) {
+		for(var i = 0; i < actions.length; i++) {
+			if(actions[i].type === 'push') {
+				this.push(actions[i].speed, actions[i].fromX, actions[i].fromY);
+			}
+		}
+
 		//decelerate
-		if(this.velX > 0) {
-			this.velX = Math.max(0, this.velX - 1);
+		this.velX *= 0.97;
+		if(this.velX < 0.1 && this.velX > -0.1) {
+			this.velX = 0;
 		}
-		else if(this.velX < 0) {
-			this.velX = Math.min(0, this.velX + 1);
-		}
-		if(this.velY > 0) {
-			this.velY = Math.max(0, this.velY - 1);
-		}
-		else if(this.velY < 0) {
-			this.velY = Math.min(0, this.velY + 1);
+		this.velY *= 0.97;
+		if(this.velY < 0.1 && this.velY > -0.1) {
+			this.velY = 0;
 		}
 
 		//apply velocity
@@ -38,6 +45,12 @@ define([
 	};
 	SyncedCrate.prototype.handleInput = function(key, isDown, state) {
 		throw new Error('SyncedCrate cannot be player controlled');
+	};
+	SyncedCrate.prototype.push = function(speed, fromX, fromY) {
+		var vec = new Vector(this.x, this.y);
+		vec.subtract(fromX, fromY).setLength(speed);
+		this.velX = Math.round(vec.x);
+		this.velY = Math.round(vec.y);
 	};
 	return SyncedCrate;
 });

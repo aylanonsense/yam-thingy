@@ -12,7 +12,9 @@ define(function() {
 	};
 	Entity.prototype.setProperties = function(keys, props) {
 		for(var i = 0; i < keys.length; i++) {
-			this[keys[i]] = props[keys[i]];
+			if(typeof props[keys[i]] !== 'undefined') {
+				this[keys[i]] = props[keys[i]];
+			}
 		}
 	};
 	return Entity;

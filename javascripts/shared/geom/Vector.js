@@ -1,5 +1,6 @@
 define(function() {
 	function Vector(x, y) {
+		if(arguments.length === 1) { y = x.y; x = x.x; }
 		this.x = x || 0;
 		this.y = y || 0;
 	}

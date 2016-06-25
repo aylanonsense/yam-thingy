@@ -20,6 +20,7 @@ define({
 		38: "UP", 87: "UP",
 		37: "LEFT", 65: "LEFT",
 		40: "DOWN", 83: "DOWN",
-		39: "RIGHT", 68: "RIGHT"
+		39: "RIGHT", 68: "RIGHT",
+		69: "USE" //E key
 	}
 });

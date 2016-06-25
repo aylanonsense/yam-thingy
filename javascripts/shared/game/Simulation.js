@@ -11,8 +11,10 @@ define([
 		this.entities = [];
 	}
 	Simulation.prototype.update = function(actions) {
+		var i, j;
+
 		//handle simulation-level actions
-		for(var i = 0; i < actions.length; i++) {
+		for(i = 0; i < actions.length; i++) {
 			if(actions[i].type === 'spawn-entity') {
 				this.spawnEntity(actions[i].entityId, actions[i].entityType, actions[i].entityState);
 			}
@@ -27,12 +29,24 @@ define([
 		//update all entities
 		for(i = 0; i < this.entities.length; i++) {
 			var actionsForEntity = [];
-			for(var j = 0; j < actions.length; j++) {
-				if(actions[j].type === 'entity-action' && actions[j].entityId === this.entities[i].id) {
+			for(j = 0; j < actions.length; j++) {
+				if(i !== j && actions[j].type === 'entity-action' && actions[j].entityId === this.entities[i].id) {
 					actionsForEntity.push(actions[j].action);
 				}
 			}
 			this.entities[i].update(actionsForEntity);
+		}
+
+		//check for hits on DesyncedCrates
+		for(i = 0; i < this.entities.length; i++) {
+			for(j = 0; j < this.entities.length; j++) {
+				if(i !== j && this.entities[i].type === 'Square' &&
+					this.entities[j].type === 'DesyncedCrate' &&
+					this.entities[i].isAttacking() &&
+					this.entities[i].isInAttackRange(this.entities[j])) {
+					this.entities[j].push(4, this.entities[i].x, this.entities[i].y);
+				}
+			}
 		}
 	};
 	Simulation.prototype.getState = function() {

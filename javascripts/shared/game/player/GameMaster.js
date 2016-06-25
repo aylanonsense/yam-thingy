@@ -21,7 +21,28 @@ define(function() {
 			});
 		}
 	};
-	GameMaster.prototype.update = function() {};
+	GameMaster.prototype.update = function() {
+		//check for hits on SyncedCrates
+		for(i = 0; i < this.simulation.entities.length; i++) {
+			for(j = 0; j < this.simulation.entities.length; j++) {
+				if(i !== j && this.simulation.entities[i].type === 'Square' &&
+					this.simulation.entities[j].type === 'SyncedCrate' &&
+					this.simulation.entities[i].isAttacking() &&
+					this.simulation.entities[i].isInAttackRange(this.simulation.entities[j])) {
+					this._actions.push({
+						type: 'entity-action',
+						entityId: this.simulation.entities[j].id,
+						action: {
+							type: 'push',
+							speed: 4,
+							fromX: this.simulation.entities[i].x,
+							fromY: this.simulation.entities[i].y
+						}
+					});
+				}
+			}
+		}
+	};
 	GameMaster.prototype.addPlayer = function(player) {
 		//spawn a new entity for that player to control
 		var entityId = this.nextEntityId++;
@@ -31,9 +52,7 @@ define(function() {
 			entityType: 'Square',
 			entityState: {
 				x: 300,
-				y: 200,
-				moveX: 0,
-				moveY: 0
+				y: 200
 			}
 		});
 		//put the player in control of that entity
