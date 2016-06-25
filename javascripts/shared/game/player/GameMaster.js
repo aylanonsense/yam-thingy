@@ -56,9 +56,10 @@ define(function() {
 			}
 		});
 		//put the player in control of that entity
-		player.join({
+		player.setState({
 			entityId: entityId
 		});
+		player.join();
 	};
 	GameMaster.prototype.removePlayer = function(player) {
 		//despawn the player's entity

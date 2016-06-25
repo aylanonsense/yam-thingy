@@ -1,4 +1,5 @@
 define([
+	'config',
 	'net/startWebServer',
 	'net/startSocketServer',
 	'net/ClientServer',
@@ -9,6 +10,7 @@ define([
 	'shared/game/player/Player',
 	'shared/game/player/GameMaster'
 ], function(
+	config,
 	startWebServer,
 	startSocketServer,
 	ClientServer,
@@ -37,6 +39,7 @@ define([
 		});
 
 		//create all the network stuff
+		var timeOfLastStateSend = null;
 		var clientServer = new ClientServer({
 			simulation: simulation,
 			socketServer: socketServer
@@ -127,6 +130,17 @@ define([
 			simulationRunner.update();
 
 			//now that the simulation is updated, we can send the state to clients that want it
+			if(timeOfLastStateSend === null || timeOfLastStateSend < clock.time - config.MILLISECONDS_BETWEEN_SENDING_STATE) {
+				timeOfLastStateSend = clock.time;
+				for(i = 0; i < clientServer.clients.length; i++) {
+					client.buffer({
+						type: 'current-state',
+						simulationState: simulation.getState(),
+						playerState: client.player.getState(),
+						frame: clock.frame
+					});
+				}
+			}
 			for(i = 0; i < stateRequests.length; i++) {
 				client = stateRequests[i].client;
 				msg = stateRequests[i].message;

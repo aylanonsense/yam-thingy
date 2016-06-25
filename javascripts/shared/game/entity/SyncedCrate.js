@@ -48,9 +48,12 @@ define([
 	};
 	SyncedCrate.prototype.push = function(speed, fromX, fromY) {
 		var vec = new Vector(this.x, this.y);
-		vec.subtract(fromX, fromY).setLength(speed);
-		this.velX = Math.round(vec.x);
-		this.velY = Math.round(vec.y);
+		vec.subtract(fromX, fromY);
+		if(vec.x !== 0 || vec.y !== 0) {
+			vec.setLength(speed);
+			this.velX = Math.round(vec.x);
+			this.velY = Math.round(vec.y);
+		}
 	};
 	return SyncedCrate;
 });

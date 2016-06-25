@@ -30,7 +30,7 @@ define([
 		for(i = 0; i < this.entities.length; i++) {
 			var actionsForEntity = [];
 			for(j = 0; j < actions.length; j++) {
-				if(i !== j && actions[j].type === 'entity-action' && actions[j].entityId === this.entities[i].id) {
+				if(actions[j].type === 'entity-action' && actions[j].entityId === this.entities[i].id) {
 					actionsForEntity.push(actions[j].action);
 				}
 			}

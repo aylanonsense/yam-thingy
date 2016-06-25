@@ -84,7 +84,8 @@ define([
 				//the client has joined frealzies
 				if(msg.type === 'join-accept') {
 					simulationRunner.scheduleState(msg.simulationState, msg.frame);
-					player.join(msg.playerState);
+					player.setState(msg.playerState);
+					player.join();
 					inputStream.reset();
 					if(initialStateFrame === null) {
 						initialStateFrame = msg.frame;
@@ -97,6 +98,11 @@ define([
 					if(!msg.causedByClientInput) {
 						predictionSimulationRunner.scheduleActions(msg.actions, msg.frame);
 					}
+				}
+				//refresh the state
+				else if(msg.type === 'current-state' && initialStateFrame !== null) {
+					simulationRunner.scheduleState(msg.simulationState, msg.frame);
+					player.setState(msg.playerState);
 				}
 			}
 			receivedMessages = [];

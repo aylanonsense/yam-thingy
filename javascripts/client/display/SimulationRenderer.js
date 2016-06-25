@@ -46,6 +46,7 @@ define([
 			}
 			draw.rect(entity.x - entity.width / 2, entity.y - entity.height / 2,
 				entity.width, entity.height, { fill: color });
+			draw.text(entity.id, entity.x, entity.y + 5, { fill: '#000', align: 'center' });
 		}
 	};
 	return SimulationRenderer;

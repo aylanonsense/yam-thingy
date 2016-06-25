@@ -26,7 +26,6 @@ define(function() {
 	};
 	Player.prototype.join = function(state) {
 		this._hasJoined = true;
-		this.setState(state);
 	};
 	Player.prototype.getState = function() {
 		return {
