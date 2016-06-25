@@ -53,8 +53,8 @@ define([
 
 		//create the renderer that will render the two simulations
 		var simulationRenderer = new SimulationRenderer({
-			simulation: simulation,
-			prediction: predictionSimulation
+			primarySimulation: predictionSimulation,
+			secondarySimulation: simulation
 		});
 
 		//resize the canvas
