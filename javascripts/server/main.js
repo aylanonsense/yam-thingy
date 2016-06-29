@@ -22,6 +22,14 @@ define([
 	GameMaster
 ) {
 	return function main() {
+		var nextActionId = 0;
+		function addIdsToActions(actions) {
+			for(var i = 0; i < actions.length; i++) {
+				actions[i].id = 'server_' + (nextActionId++);
+			}
+			return actions;
+		}
+
 		//start server
 		var webServer = startWebServer();
 		var socketServer = startSocketServer(webServer);
@@ -97,10 +105,19 @@ define([
 				client.player.update(inputs);
 				actions = client.player.popActions();
 				if(actions.length > 0) {
+					addIdsToActions(actions);
 					simulationRunner.scheduleActions(actions, clock.frame);
 					clientServer.bufferToAllExcept({
 						type: 'actions',
-						actions: actions,
+						actions: actions.map(function(action) {
+							var actionCopy = {};
+							for(var key in action) {
+								if(key !== 'inputId') {
+									actionCopy[key] = action[key];
+								}
+							}
+							return actionCopy;
+						}),
 						frame: clock.frame,
 						causedByClientInput: false
 					}, client);
@@ -117,6 +134,7 @@ define([
 			gameMaster.update();
 			actions = gameMaster.popActions();
 			if(actions.length > 0) {
+				addIdsToActions(actions);
 				simulationRunner.scheduleActions(actions, clock.frame);
 				clientServer.bufferToAll({
 					type: 'actions',
@@ -165,6 +183,7 @@ define([
 		gameMaster.reset();
 		var initialActions = gameMaster.popActions();
 		if(initialActions.length > 0) {
+			addIdsToActions(initialActions);
 			simulationRunner.scheduleActions(initialActions, clock.frame);
 		}
 		clientServer.startListening();

@@ -24,6 +24,14 @@ define([
 	GameMaster
 ) {
 	return function main() {
+		var nextActionId = 0;
+		function addIdsToActions(actions) {
+			for(var i = 0; i < actions.length; i++) {
+				actions[i].id = nextActionId++;
+			}
+			return actions;
+		}
+
 		//create the simulation
 		var simulation = new Simulation();
 		var simulationRunner = new SimulationRunner({
@@ -57,6 +65,7 @@ define([
 			player.update(inputs);
 			var actions = player.popActions();
 			if(actions.length > 0) {
+				addIdsToActions(actions);
 				simulationRunner.scheduleActions(actions, clock.frame);
 			}
 
@@ -64,6 +73,7 @@ define([
 			gameMaster.update();
 			actions = gameMaster.popActions();
 			if(actions.length > 0) {
+				addIdsToActions(actions);
 				simulationRunner.scheduleActions(actions, clock.frame);
 			}
 
@@ -97,6 +107,7 @@ define([
 		gameMaster.addPlayer(player);
 		var initialActions = gameMaster.popActions();
 		if(initialActions.length > 0) {
+			addIdsToActions(initialActions);
 			simulationRunner.scheduleActions(initialActions, clock.frame);
 		}
 	};

@@ -74,6 +74,7 @@ define([
 				actions.push({
 					type: 'entity-action',
 					entityId: this.id,
+					inputId: input.id,
 					action: {
 						type: 'change-move-dir',
 						moveX: moveX,
@@ -86,6 +87,7 @@ define([
 					actions.push({
 						type: 'entity-action',
 						entityId: this.id,
+						inputId: input.id,
 						action: {
 							type: 'attack'
 						}

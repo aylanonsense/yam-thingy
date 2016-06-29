@@ -28,10 +28,18 @@ define([
 	Player
 ) {
 	return function main() {
+		var nextActionId = 0;
+		function addIdsToActions(actions) {
+			for(var i = 0; i < actions.length; i++) {
+				actions[i].id = 'client_' + (nextActionId++);
+			}
+			return actions;
+		}
+
 		//create all the network stuff
 		var initialStateFrame = null;
 		var receivedMessages = [];
-		var syncer = new LatencySyncer();
+		var latencySyncer = new LatencySyncer();
 
 		//create the simulations (one will be a prediction of the state based on user input)
 		var simulation = new Simulation();
@@ -66,7 +74,7 @@ define([
 			var i;
 
 			//keep the network synced
-			var networkInitialized = syncer.calibrateNetwork();
+			var networkInitialized = latencySyncer.calibrateNetwork();
 			if(networkInitialized) { //careful--clock.frame may have changed
 				simulationRunner.reset(clock.frame - 1);
 				predictionSimulationRunner.reset(clock.frame - 1);
@@ -74,8 +82,8 @@ define([
 				initialStateFrame = null;
 				conn.buffer({ type: 'join-game' });
 				consoleUI.write('Initialized with ' +
-					syncer.inputLatency + ' frames of input latency and ' +
-					syncer.latency + ' frames of network latency');
+					latencySyncer.inputLatency + ' frames of input latency and ' +
+					latencySyncer.latency + ' frames of network latency');
 			}
 
 			//respond to server messages
@@ -112,6 +120,7 @@ define([
 			player.update(inputs);
 			var actions = player.popActions();
 			if(actions.length > 0) {
+				addIdsToActions(actions);
 				predictionSimulationRunner.scheduleActions(actions, clock.frame);
 			}
 
@@ -140,11 +149,11 @@ define([
 		//handle network events
 		conn.on('connect', function() {
 			consoleUI.write('Connected to server');
-			syncer.start();
+			latencySyncer.start();
 		});
 		conn.on('receive', function(msg) {
 			if(msg.type === 'ping') {
-				syncer.handlePing(msg);
+				latencySyncer.handlePing(msg);
 			}
 			else {
 				receivedMessages.push(msg);
@@ -152,26 +161,28 @@ define([
 		});
 		conn.on('disconnect', function() {
 			consoleUI.write('Disconnected from server...');
-			syncer.stop();
+			latencySyncer.stop();
 			player.reset();
 			receivedMessages = [];
 			initialStateFrame = null;
 		});
 
 		//handle input events
+		var nextInputId = 0;
 		keyboard.on('key-event', function(key, isDown) {
 			if(player.hasJoined()) {
 				var input = {
 					type: 'keyboard',
+					id: nextInputId++,
 					key: key,
 					isDown: isDown,
 					state: keyboard.getState()
 				};
-				inputStream.scheduleInput(input, clock.frame + 1 + syncer.inputLatency, 0);
+				inputStream.scheduleInput(input, clock.frame + 1 + latencySyncer.inputLatency, 0);
 				conn.buffer({
 					type: 'input',
 					input: input,
-					frame: clock.frame + 1 + syncer.latency,
+					frame: clock.frame + 1 + latencySyncer.latency,
 					maxFramesLate: 6
 				});
 			}
