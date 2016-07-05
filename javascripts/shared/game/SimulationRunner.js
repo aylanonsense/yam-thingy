@@ -6,9 +6,10 @@ define(function() {
 		this._stateHistory = [];
 		this._actionHistory = [];
 	}
-	SimulationRunner.prototype.reset = function(frame) {
+	SimulationRunner.prototype.reset = function(params) {
 		this.simulation.reset();
-		this.frame = frame;
+		this.frame = params.frame;
+		this._framesOfHistory = params.framesOfHistory;
 		this._stateHistory = [{
 			state: this.simulation.getState(),
 			frame: this.frame - 1,
@@ -18,6 +19,14 @@ define(function() {
 	};
 	SimulationRunner.prototype.getState = function() {
 		return this.simulation.getState();
+	};
+	SimulationRunner.prototype.getStateAt = function(frame) {
+		for(var i = 0; i < this._stateHistory.length; i++) {
+			if(this._stateHistory[i].frame === frame) {
+				return this._stateHistory[i].state;
+			}
+		}
+		return null;
 	};
 	SimulationRunner.prototype.scheduleState = function(state, frame) {
 		if(!state) {

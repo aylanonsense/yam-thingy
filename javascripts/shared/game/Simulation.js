@@ -21,9 +21,6 @@ define([
 			else if(actions[i].type === 'despawn-entity') {
 				this.despawnEntity(actions[i].entityId);
 			}
-			else if(actions[i].type !== 'entity-action') {
-				throw new Error('Cannot handle action of type "' + actions[i].type + '"');
-			}
 		}
 
 		//update all entities
@@ -46,6 +43,13 @@ define([
 					this.entities[i].isInAttackRange(this.entities[j])) {
 					this.entities[j].push(4, this.entities[i].x, this.entities[i].y);
 				}
+			}
+		}
+
+		//states may be overwritten
+		for(i = 0; i < actions.length; i++) {
+			if(actions[i].type === 'set-entity-state') {
+				this.getEntity(actions[i].entityId).setState(actions[i].entityState);
 			}
 		}
 	};

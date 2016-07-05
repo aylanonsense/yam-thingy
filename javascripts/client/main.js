@@ -6,6 +6,7 @@ define([
 	'net/conn',
 	'display/consoleUI',
 	'net/LatencySyncer',
+	'net/SimulationSyncer',
 	'shared/game/Simulation',
 	'shared/game/SimulationRunner',
 	'display/SimulationRenderer',
@@ -20,6 +21,7 @@ define([
 	conn,
 	consoleUI,
 	LatencySyncer,
+	SimulationSyncer,
 	Simulation,
 	SimulationRunner,
 	SimulationRenderer,
@@ -36,21 +38,26 @@ define([
 			return actions;
 		}
 
-		//create all the network stuff
-		var initialStateFrame = null;
-		var receivedMessages = [];
-		var latencySyncer = new LatencySyncer();
-
 		//create the simulations (one will be a prediction of the state based on user input)
 		var simulation = new Simulation();
 		var simulationRunner = new SimulationRunner({
 			simulation: simulation,
-			framesOfHistory: 12
+			framesOfHistory: 5
 		});
 		var predictionSimulation = new Simulation();
 		var predictionSimulationRunner = new SimulationRunner({
 			simulation: predictionSimulation,
-			framesOfHistory: 12
+			framesOfHistory: 5
+		});
+
+		//create all the network stuff
+		var initialStateFrame = null;
+		var receivedMessages = [];
+		var latencySyncer = new LatencySyncer();
+		var simulationSyncer = new SimulationSyncer({
+			simulationRunner: simulationRunner,
+			predictionSimulationRunner: predictionSimulationRunner,
+			latencySyncer: latencySyncer
 		});
 
 		//create the player that will affect the prediction simulation
@@ -76,9 +83,17 @@ define([
 			//keep the network synced
 			var networkInitialized = latencySyncer.calibrateNetwork();
 			if(networkInitialized) { //careful--clock.frame may have changed
-				simulationRunner.reset(clock.frame - 1);
-				predictionSimulationRunner.reset(clock.frame - 1);
+				var framesOfHistory = Math.max(2, Math.ceil(1.5 * (latencySyncer.latency - latencySyncer.inputLatency)));
+				simulationRunner.reset({
+					frame: clock.frame - 1,
+					framesOfHistory: framesOfHistory
+				});
+				predictionSimulationRunner.reset({
+					frame: clock.frame - 1,
+					framesOfHistory: framesOfHistory
+				});
 				player.reset();
+				simulationSyncer.reset();
 				initialStateFrame = null;
 				conn.buffer({ type: 'join-game' });
 				consoleUI.write('Initialized with ' +
@@ -129,6 +144,14 @@ define([
 			predictionSimulationRunner.update();
 			if(simulationRunner.frame !== clock.frame || predictionSimulationRunner.frame !== clock.frame) {
 				throw new Error('Simulation runner(s) not in sync with the clock!');
+			}
+
+			//synchronize the simulations
+			simulationSyncer.update();
+			var revisions = simulationSyncer.popRevisions();
+			for(i = 0; i < revisions.length; i++) {
+				actions = addIdsToActions(revisions[i].actions);
+				predictionSimulationRunner.scheduleActions(actions, revisions[i].frame);
 			}
 
 			//clear canvas

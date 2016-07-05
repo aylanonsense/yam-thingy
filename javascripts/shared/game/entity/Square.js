@@ -105,5 +105,9 @@ define([
 		var dy = Math.abs(this.y - other.y) - other.height / 2;
 		return dx <= this.attackRange / 2 && dy <= this.attackRange / 2;
 	};
+	Square.prototype.getErrorFromState = function(state) {
+		return Math.abs(this.x - state.x) / 20 +
+			Math.abs(this.y - state.y) / 20;
+	};
 	return Square;
 });

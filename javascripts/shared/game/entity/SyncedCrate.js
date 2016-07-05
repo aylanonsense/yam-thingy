@@ -55,5 +55,9 @@ define([
 			this.velY = Math.round(vec.y);
 		}
 	};
+	SyncedCrate.prototype.getErrorFromState = function(state) {
+		return Math.abs(this.x - state.x) / 10 +
+			Math.abs(this.y - state.y) / 10;
+	};
 	return SyncedCrate;
 });

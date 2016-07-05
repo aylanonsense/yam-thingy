@@ -59,7 +59,7 @@ define([
 			client.on('receive', function(msg) {
 				if(msg.type === 'input') {
 					if(msg.frame < clock.frame + 1) {
-						console.log('Input arrived ' + (clock.frame + 1 - msg.frame) + ' frames late', msg);
+						console.log('Input arrived ' + (clock.frame + 1 - msg.frame) + ' frames late');
 					}
 					client.inputStream.scheduleInput(msg.input, msg.frame, msg.maxFramesLate);
 				}
@@ -179,7 +179,10 @@ define([
 
 		//kick it all off!
 		clock.start();
-		simulationRunner.reset(clock.frame);
+		simulationRunner.reset({
+			frame: clock.frame,
+			framesOfHistory: 5
+		});
 		gameMaster.reset();
 		var initialActions = gameMaster.popActions();
 		if(initialActions.length > 0) {
