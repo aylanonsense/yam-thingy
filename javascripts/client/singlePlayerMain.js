@@ -102,7 +102,10 @@ define([
 
 		//kick it all off!
 		clock.start();
-		simulationRunner.reset(clock.frame);
+		simulationRunner.reset({
+			frame: clock.frame,
+			framesOfHistory: 1
+		});
 		gameMaster.reset();
 		gameMaster.addPlayer(player);
 		var initialActions = gameMaster.popActions();
