@@ -1,7 +1,7 @@
 define([
-	'net/Connection2'
+	'net/Connection'
 ], function(
-	Connection2
+	Connection
 ) {
-	return new Connection2();
+	return new Connection();
 });

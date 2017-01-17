@@ -1,8 +1,8 @@
 define([
-	'net/Connection2',
+	'net/Connection',
 	'shared/util/EventHelper'
 ], function(
-	Connection2,
+	Connection,
 	EventHelper
 ) {
 	function ConnectionServer(params) {
@@ -18,7 +18,7 @@ define([
 
 			//start listening for connections
 			this._socketServer.on('connection', function(socket) {
-				var conn = new Connection2(socket);
+				var conn = new Connection(socket);
 				self.connections.push(conn);
 
 				//remove connection from list of connections on disconnect

@@ -105,6 +105,10 @@ define([
 			this._outbound.enqueue({ type: 'connect' }, now() + generateFakeLag());
 		}
 	};
+	Connection.prototype.reconnect = function() {
+		this.disconnect();
+		this.connect();
+	};
 	Connection.prototype.disconnect = function() {
 		if(this.isConnecting || this._isConnected) {
 			this._isConnecting = false;
