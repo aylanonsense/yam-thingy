@@ -1,7 +1,32 @@
 <html>
 	<head>
-		<script type="text/javascript" src="/lib/require.js" data-main="/index.js"></script>
-		<link rel="stylesheet" href="/style.css"></link>
+		<script type="text/javascript">
+			var PROTOCOL = window.location.protocol;
+			var HOST_NAME = window.location.host;
+			var BASE_URL = window.location.pathname;
+			if (BASE_URL.endsWith('/')) {
+				BASE_URL = BASE_URL.substring(0, BASE_URL.length - 1);
+			}
+			(function() {
+				// add scripts
+				var scripts = document.createElement('script');
+				scripts.setAttribute('src', BASE_URL + '/lib/require.js');
+				scripts.setAttribute('data-main', BASE_URL + '/index.js');
+				document.head.appendChild(scripts);
+			})();
+		</script>
+		<style>
+			body {
+				display: flex;
+				margin: 0;
+				padding: 0;
+				background-color: #222;
+			}
+			#canvas {
+				display: block;
+				margin: auto;
+			}
+		</style>
 	</head>
 	<body>
 		<canvas id="canvas"></canvas>

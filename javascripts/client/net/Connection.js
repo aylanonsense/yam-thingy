@@ -55,7 +55,7 @@ define([
 			}
 			else if(evt.type === 'connect') {
 				var self = this;
-				this._socket = io();
+				this._socket = io(PROTOCOL + '//' + HOST_NAME, { path: BASE_URL + '/socket.io' });
 				this._socket.on('connect', function() {
 					self._isActuallyConnected = true;
 					self._inbound.enqueue({ type: 'connect' }, now() + generateFakeLag());

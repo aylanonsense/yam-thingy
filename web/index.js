@@ -1,6 +1,6 @@
 //configure requirejs
 requirejs.config({
-	baseUrl: 'javascripts/client',
+	baseUrl: BASE_URL + '/javascripts/client',
 	paths: {
 		shared: '../shared',
 		'socket.io': '../../socket.io/socket.io'
